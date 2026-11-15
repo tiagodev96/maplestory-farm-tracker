@@ -12,7 +12,6 @@ import {
   getActiveGrind,
   listCharacters,
   listKnownItems,
-  listKnownMaps,
   listKnownMonsters,
   listSessions,
   type GrindSession,
@@ -34,8 +33,6 @@ function lastSessionEndByCharacter(newestFirst: GrindSession[]): Record<string, 
   for (const session of newestFirst) {
     lastEnds[session.characterId] ??= {
       monster: session.monster,
-      map: session.map,
-      isParty: session.isParty,
       mesosEnd: session.mesosEnd,
       levelEnd: session.levelEnd,
       expEnd: session.expEnd,
@@ -59,12 +56,11 @@ export default async function GrindPage() {
     );
   }
 
-  const [activeGrind, allSessions, knownMonsters, knownMaps, knownItems, timeZone, activeCharacterId] =
+  const [activeGrind, allSessions, knownMonsters, knownItems, timeZone, activeCharacterId] =
     await Promise.all([
       getActiveGrind(),
       listSessions(null),
       listKnownMonsters(),
-      listKnownMaps(),
       listKnownItems(),
       getTimeZone(),
       getActiveCharacterId(characters),
@@ -103,7 +99,6 @@ export default async function GrindPage() {
             defaultCharacterId={defaultCharacterId}
             lastSessionEndByCharacter={lastSessionEndByCharacter(allSessions)}
             knownMonsters={knownMonsters}
-            knownMaps={knownMaps}
           />
         )}
       </section>

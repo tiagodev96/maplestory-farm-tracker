@@ -102,16 +102,12 @@ export function ActiveGrindCard({ grind, serverNow, timeZone, knownItems }: Acti
 
   const startDay = dayKey(grind.startedAt, timeZone);
   const startedOnAnotherDay = startDay !== dayKey(now, timeZone);
-  const place = [grind.monster, grind.map].filter(Boolean).join(" · ") || "não informado";
 
   const startSummary = (
     <div className="space-y-3 rounded-lg border border-line bg-bg px-3 py-3 text-[13px]">
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-        <SummaryItem
-          label="Personagem"
-          value={grind.isParty ? `${grind.characterName} (party)` : grind.characterName}
-        />
-        <SummaryItem label="Monstro · mapa" value={place} />
+        <SummaryItem label="Personagem" value={grind.characterName} />
+        <SummaryItem label="Monstro" value={grind.monster || "não informado"} />
         <SummaryItem label="Mesos início" value={formatInteger(grind.mesosStart)} />
         <SummaryItem label="EXP início" value={formatInteger(grind.expStart)} />
       </dl>

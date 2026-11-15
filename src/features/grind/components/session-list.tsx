@@ -7,7 +7,6 @@ import {
   formatDuration,
   formatPercent,
   formatSigned,
-  formatTime,
 } from "@/lib/format";
 import { netProfit, perHour } from "@/lib/grind-math";
 import type { GrindSession } from "../queries";
@@ -76,7 +75,6 @@ function SessionRow({
       </div>
       <p className="mt-0.5 text-xs text-muted">
         {session.characterName} · {formatDayKey(dayKey(session.startedAt, timeZone))} ·{" "}
-        {formatTime(session.startedAt, timeZone)} a {formatTime(session.endedAt, timeZone)} ·{" "}
         {formatDuration(session.activeMs)}
       </p>
       <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs tabular-nums">
