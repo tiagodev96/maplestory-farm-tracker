@@ -11,11 +11,19 @@ import { StatTiles } from "@/features/grind/components/stat-tiles";
 import {
   getActiveGrind,
   listCharacters,
+  listKnownItems,
+  listKnownMaps,
   listKnownMonsters,
   listSessions,
   type GrindSession,
 } from "@/features/grind/queries";
-import { formatInteger } from "@/lib/format";
+import { formatDuration, formatInteger } from "@/lib/format";
+import {
+  expPerHour,
+  hasReliableRates,
+  recordSessionIds,
+  timeToNextLevelMs,
+} from "@/lib/grind-math";
 import { getRequestTime } from "@/lib/request-time";
 import { getActiveCharacterId, getTimeZone } from "@/lib/request-preferences";
 
@@ -26,6 +34,8 @@ function lastSessionEndByCharacter(newestFirst: GrindSession[]): Record<string, 
   for (const session of newestFirst) {
     lastEnds[session.characterId] ??= {
       monster: session.monster,
+      map: session.map,
+      isParty: session.isParty,
       mesosEnd: session.mesosEnd,
       levelEnd: session.levelEnd,
       expEnd: session.expEnd,
@@ -49,31 +59,51 @@ export default async function GrindPage() {
     );
   }
 
-  const [activeGrind, allSessions, knownMonsters, timeZone, activeCharacterId] = await Promise.all([
-    getActiveGrind(),
-    listSessions(null),
-    listKnownMonsters(),
-    getTimeZone(),
-    getActiveCharacterId(characters),
-  ]);
+  const [activeGrind, allSessions, knownMonsters, knownMaps, knownItems, timeZone, activeCharacterId] =
+    await Promise.all([
+      getActiveGrind(),
+      listSessions(null),
+      listKnownMonsters(),
+      listKnownMaps(),
+      listKnownItems(),
+      getTimeZone(),
+      getActiveCharacterId(characters),
+    ]);
   const now = getRequestTime();
   const filteredSessions = activeCharacterId
     ? allSessions.filter((session) => session.characterId === activeCharacterId)
     : allSessions;
   const defaultCharacterId = activeCharacterId ?? allSessions[0]?.characterId ?? characters[0].id;
   const latestSession = filteredSessions[0];
+  // The pace comes from the character's latest session long enough to be trusted.
+  const paceSession = latestSession
+    ? filteredSessions.find(
+        (session) =>
+          session.characterId === latestSession.characterId && hasReliableRates(session),
+      )
+    : undefined;
+  const timeToLevelMs =
+    latestSession && paceSession
+      ? timeToNextLevelMs(latestSession.levelEnd, latestSession.expEnd, expPerHour(paceSession))
+      : null;
 
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(340px,420px)_1fr]">
       <section className="card" aria-live="polite">
         {activeGrind ? (
-          <ActiveGrindCard grind={activeGrind} serverNow={now} timeZone={timeZone} />
+          <ActiveGrindCard
+            grind={activeGrind}
+            serverNow={now}
+            timeZone={timeZone}
+            knownItems={knownItems}
+          />
         ) : (
           <StartGrindForm
             characters={characters}
             defaultCharacterId={defaultCharacterId}
             lastSessionEndByCharacter={lastSessionEndByCharacter(allSessions)}
             knownMonsters={knownMonsters}
+            knownMaps={knownMaps}
           />
         )}
       </section>
@@ -92,6 +122,12 @@ export default async function GrindPage() {
             </div>
             <div className="min-w-[180px] flex-1">
               <LevelBar level={latestSession.levelEnd} exp={latestSession.expEnd} />
+              {timeToLevelMs !== null ? (
+                <p className="mt-1.5 text-xs text-muted">
+                  Cerca de <b className="font-semibold text-text">{formatDuration(timeToLevelMs)}</b>{" "}
+                  para o Lv {latestSession.levelEnd + 1} no seu ritmo mais recente.
+                </p>
+              ) : null}
             </div>
           </section>
         ) : null}
@@ -115,6 +151,7 @@ export default async function GrindPage() {
             <SessionList
               sessions={filteredSessions.slice(0, RECENT_SESSION_COUNT)}
               timeZone={timeZone}
+              recordIds={recordSessionIds(filteredSessions, (session) => session.monster)}
             />
           )}
         </section>

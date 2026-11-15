@@ -1,17 +1,30 @@
 import { formatDuration, formatInteger, formatSigned } from "@/lib/format";
-import { perHour, type Totals } from "@/lib/grind-math";
+import { isReliableDuration, perHour, type Totals } from "@/lib/grind-math";
 
-export type TotalsRow = { label: string; totals: Totals };
+export type TotalsRow = {
+  label: string;
+  totals: Totals;
+  /** Best single-session EXP/h of the group, when the view tracks records. */
+  bestExpPerHour?: number | null;
+};
 
-const mesosPerHour = (row: TotalsRow) => perHour(row.totals.profit, row.totals.activeMs);
+const profitPerHour = (row: TotalsRow) => perHour(row.totals.profit, row.totals.activeMs);
 const expPerHour = (row: TotalsRow) => perHour(row.totals.exp, row.totals.activeMs);
 
+/** Scale for the bars. Rows with too little grind time would dwarf every real rate. */
 function highest(rows: TotalsRow[], rateOf: (row: TotalsRow) => number | null): number {
-  return Math.max(0, ...rows.map((row) => rateOf(row) ?? 0));
+  const reliableRows = rows.filter((row) => isReliableDuration(row.totals.activeMs));
+  return Math.max(0, ...reliableRows.map((row) => rateOf(row) ?? 0));
 }
 
-export function GroupTotalsTable({ heading, rows }: { heading: string; rows: TotalsRow[] }) {
-  const highestMesosPerHour = highest(rows, mesosPerHour);
+type GroupTotalsTableProps = {
+  heading: string;
+  rows: TotalsRow[];
+  showsRecord?: boolean;
+};
+
+export function GroupTotalsTable({ heading, rows, showsRecord = false }: GroupTotalsTableProps) {
+  const highestProfitPerHour = highest(rows, profitPerHour);
   const highestExpPerHour = highest(rows, expPerHour);
 
   return (
@@ -22,10 +35,11 @@ export function GroupTotalsTable({ heading, rows }: { heading: string; rows: Tot
             <th>{heading}</th>
             <th>Sessões</th>
             <th>Tempo</th>
-            <th>Lucro</th>
-            <th>Mesos/h</th>
+            <th>Lucro líq.</th>
+            <th>Lucro/h</th>
             <th>EXP ganho</th>
             <th>EXP/h</th>
+            {showsRecord ? <th>Recorde EXP/h</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -37,9 +51,10 @@ export function GroupTotalsTable({ heading, rows }: { heading: string; rows: Tot
               <td className={row.totals.profit < 0 ? "text-bad" : "text-good"}>
                 {formatSigned(row.totals.profit)}
               </td>
-              <RateCell rate={mesosPerHour(row)} highest={highestMesosPerHour} barTone="bg-accent" />
+              <RateCell rate={profitPerHour(row)} highest={highestProfitPerHour} barTone="bg-accent" />
               <td>{formatInteger(row.totals.exp)}</td>
               <RateCell rate={expPerHour(row)} highest={highestExpPerHour} barTone="bg-exp" />
+              {showsRecord ? <td>{formatInteger(row.bestExpPerHour ?? null) || "–"}</td> : null}
             </tr>
           ))}
         </tbody>
@@ -58,7 +73,7 @@ function RateCell({
   highest: number;
   barTone: string;
 }) {
-  const share = rate !== null && highest > 0 ? Math.max(0, rate / highest) : 0;
+  const share = rate !== null && highest > 0 ? Math.min(1, Math.max(0, rate / highest)) : 0;
 
   return (
     <td className="min-w-[110px]">

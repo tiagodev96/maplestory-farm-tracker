@@ -4,6 +4,7 @@ import { RangeTabs } from "@/components/range-tabs";
 import { SessionList } from "@/features/grind/components/session-list";
 import { SessionsTable } from "@/features/grind/components/sessions-table";
 import { listCharacters, listSessions } from "@/features/grind/queries";
+import { recordSessionIds } from "@/lib/grind-math";
 import { getRequestTime } from "@/lib/request-time";
 import { getActiveCharacterId, getTimeZone } from "@/lib/request-preferences";
 import { filterByRange, parseSessionRange } from "@/lib/session-range";
@@ -21,7 +22,9 @@ export default async function HistoryPage({
     getTimeZone(),
     getActiveCharacterId(characters),
   ]);
-  const sessions = filterByRange(await listSessions(activeCharacterId), range, getRequestTime());
+  const allSessions = await listSessions(activeCharacterId);
+  const sessions = filterByRange(allSessions, range, getRequestTime());
+  const recordIds = recordSessionIds(allSessions, (session) => session.monster);
 
   return (
     <section className="card">
@@ -44,10 +47,10 @@ export default async function HistoryPage({
       ) : (
         <>
           <div className="hidden md:block">
-            <SessionsTable sessions={sessions} timeZone={timeZone} />
+            <SessionsTable sessions={sessions} timeZone={timeZone} recordIds={recordIds} />
           </div>
           <div className="md:hidden">
-            <SessionList sessions={sessions} timeZone={timeZone} />
+            <SessionList sessions={sessions} timeZone={timeZone} recordIds={recordIds} />
           </div>
         </>
       )}

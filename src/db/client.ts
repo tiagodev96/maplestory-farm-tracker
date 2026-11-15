@@ -3,7 +3,8 @@ import * as schema from "./schema";
 
 export type Database = PgDatabase<PgQueryResultHKT, typeof schema>;
 
-const LOCAL_DATA_DIR = ".pglite";
+// Overridable so automated checks can run against a throwaway database.
+const LOCAL_DATA_DIR = process.env.PGLITE_DATA_DIR ?? ".pglite";
 const MIGRATIONS_DIR = "drizzle";
 
 async function createNeonDatabase(connectionString: string): Promise<Database> {

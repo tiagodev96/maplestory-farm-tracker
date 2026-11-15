@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* The two chart colors are steps of the accent and EXP hues validated for the dark surface. */
 @theme {
   --color-bg: #17130f;
   --color-panel: #211b15;
@@ -13,6 +14,8 @@
   --color-bad: #ef7d6b;
   --color-exp: #8fc7ef;
   --color-expbar: #c8d84b;
+  --color-chart-profit: #c98500;
+  --color-chart-exp: #4a90e2;
 }
 
 @theme inline {

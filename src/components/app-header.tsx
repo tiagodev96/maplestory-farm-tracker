@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import { setActiveCharacterAction } from "@/features/grind/actions";
 import type { Character } from "@/features/grind/queries";
 import { authClient } from "@/lib/auth-client";
+import { isTypingInField } from "./keyboard";
 
 const NAV_LINKS = [
   { href: "/", label: "Grind" },
@@ -35,6 +36,15 @@ export function AppHeader({
   const pathname = usePathname();
   const router = useRouter();
   const [isSwitching, startSwitching] = useTransition();
+
+  useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      if (isTypingInField(event) || event.repeat) return;
+      if (event.key.toLowerCase() === "n") router.push("/history/new");
+    }
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [router]);
 
   async function signOut() {
     const { error } = await authClient.signOut();

@@ -47,11 +47,18 @@ export function AuthForm({
 
     setIsSubmitting(true);
     setErrorMessage(null);
-    const { error } = isRegistering
-      ? await authClient.signUp.email({ name, email, password })
-      : await authClient.signIn.email({ email, password });
-    if (error) {
-      setErrorMessage(describeError(error.code));
+    try {
+      const { error } = isRegistering
+        ? await authClient.signUp.email({ name, email, password })
+        : await authClient.signIn.email({ email, password });
+      if (error) {
+        setErrorMessage(describeError(error.code));
+        setIsSubmitting(false);
+        return;
+      }
+    } catch {
+      // The client only throws when the request itself fails (offline, server down).
+      setErrorMessage(describeError(undefined));
       setIsSubmitting(false);
       return;
     }
@@ -61,8 +68,13 @@ export function AuthForm({
 
   async function signInWith(provider: SocialProvider) {
     setErrorMessage(null);
-    const { error } = await authClient.signIn.social({ provider, callbackURL: "/" });
-    if (error) setErrorMessage(describeError(error.code));
+    try {
+      const { error } = await authClient.signIn.social({ provider, callbackURL: "/" });
+      if (error) setErrorMessage(describeError(error.code));
+    } catch {
+      // The client only throws when the request itself fails (offline, server down).
+      setErrorMessage(describeError(undefined));
+    }
   }
 
   return (

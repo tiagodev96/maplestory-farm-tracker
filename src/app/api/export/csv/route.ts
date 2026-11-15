@@ -2,7 +2,7 @@ import { listSessions } from "@/features/grind/queries";
 import { getCurrentUser } from "@/lib/current-user";
 import { expGained } from "@/lib/exp-table";
 import { dayKey, formatDayKey, formatTime } from "@/lib/format";
-import { mesosProfit } from "@/lib/grind-math";
+import { mesosGained, netProfit } from "@/lib/grind-math";
 import { getTimeZone } from "@/lib/request-preferences";
 
 const MS_PER_MINUTE = 60_000;
@@ -14,12 +14,17 @@ const HEADINGS = [
   "Data",
   "Personagem",
   "Monstro",
+  "Mapa",
+  "Party",
   "Hora início",
   "Hora fim",
   "Minutos",
   "Mesos início",
   "Mesos fim",
-  "Lucro",
+  "Mesos ganhos",
+  "Drops",
+  "Suprimentos",
+  "Lucro líquido",
   "Lv início",
   "EXP início",
   "Lv fim",
@@ -43,12 +48,17 @@ export async function GET(): Promise<Response> {
     formatDayKey(dayKey(session.startedAt, timeZone)),
     session.characterName,
     session.monster,
+    session.map,
+    session.isParty ? "sim" : "não",
     formatTime(session.startedAt, timeZone),
     formatTime(session.endedAt, timeZone),
     Math.round(session.activeMs / MS_PER_MINUTE),
     session.mesosStart,
     session.mesosEnd,
-    mesosProfit(session),
+    mesosGained(session),
+    session.dropsValue,
+    session.suppliesCost,
+    netProfit(session),
     session.levelStart,
     session.expStart,
     session.levelEnd,

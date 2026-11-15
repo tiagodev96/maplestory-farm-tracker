@@ -21,15 +21,15 @@ export function StatTiles({ sessions, now, timeZone }: StatTilesProps) {
   const todayTotals = aggregate(
     sessions.filter((session) => dayKey(session.startedAt, timeZone) === today),
   );
-  const mesosPerHour = perHour(totals.profit, totals.activeMs);
+  const profitPerHour = perHour(totals.profit, totals.activeMs);
   const expPerHour = perHour(totals.exp, totals.activeMs);
 
   return (
     <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       <Tile
-        label="Mesos/h"
-        value={formatCompact(mesosPerHour)}
-        exactValue={formatInteger(mesosPerHour)}
+        label="Lucro/h"
+        value={formatCompact(profitPerHour)}
+        exactValue={formatInteger(profitPerHour)}
         tone="text-accent"
       />
       <Tile
@@ -40,7 +40,7 @@ export function StatTiles({ sessions, now, timeZone }: StatTilesProps) {
       />
       <Tile label="Tempo de grind" value={formatDuration(totals.activeMs)} />
       <Tile
-        label="Lucro total"
+        label="Lucro líquido"
         value={formatSignedCompact(totals.profit)}
         exactValue={formatSigned(totals.profit)}
         tone={totals.profit < 0 ? "text-bad" : "text-accent"}

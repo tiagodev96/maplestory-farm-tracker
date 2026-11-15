@@ -46,3 +46,6 @@ next-env.d.ts
 
 # playwright MCP output
 /.playwright-mcp
+
+# throwaway databases used by automated checks
+/.pglite-*

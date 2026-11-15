@@ -28,7 +28,45 @@ const level = (label: string) =>
 
 const characterId = z.uuid({ error: "Escolha um personagem." });
 const monster = z.string().trim().max(80, "Nome do monstro muito longo.").default("");
+const map = z.string().trim().max(80, "Nome do mapa muito longo.").default("");
 const notes = z.string().trim().max(500, "Notas muito longas.").default("");
+// An unchecked checkbox is simply absent from the form data.
+const isParty = z
+  .string()
+  .optional()
+  .transform((value) => value === "on");
+const suppliesCost = z
+  .string()
+  .default("")
+  .transform((text) => parseAmount(text) ?? 0)
+  .pipe(
+    z
+      .number()
+      .int()
+      .min(0, "Custo de suprimentos não pode ser negativo.")
+      .max(MAX_AMOUNT, "Custo de suprimentos é alto demais."),
+  );
+
+const dropSchema = z.object({
+  itemName: z.string().trim().min(1, "Informe o nome do item.").max(60, "Nome do item muito longo."),
+  quantity: z.number().int().min(1, "Quantidade precisa ser pelo menos 1.").max(100_000),
+  unitPrice: z.number().int().min(0).max(MAX_AMOUNT),
+});
+
+/** The drops editor submits its rows as one JSON field. */
+const drops = z
+  .string()
+  .default("[]")
+  .transform((text, context) => {
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      // Only a tampered form can send invalid JSON; one message covers it.
+      context.addIssue({ code: "custom", message: "Lista de drops inválida." });
+      return z.NEVER;
+    }
+  })
+  .pipe(z.array(dropSchema).max(50, "Drops demais em uma sessão."));
 const timestampMs = (label: string) =>
   z.coerce.number({ error: `Preencha ${label}.` }).int().positive(`Preencha ${label}.`);
 
@@ -41,6 +79,8 @@ export const characterNameSchema = z
 export const startGrindSchema = z.object({
   characterId,
   monster,
+  map,
+  isParty,
   mesosStart: amount("mesos"),
   levelStart: level("level"),
   expStart: amount("EXP"),
@@ -50,6 +90,8 @@ export const finishGrindSchema = z.object({
   mesosEnd: amount("mesos"),
   levelEnd: level("level"),
   expEnd: amount("EXP"),
+  suppliesCost,
+  drops,
   notes,
 });
 
@@ -58,6 +100,8 @@ export const sessionSchema = z
     id: z.uuid().optional(),
     characterId,
     monster,
+    map,
+    isParty,
     startedAt: timestampMs("o início"),
     endedAt: timestampMs("o fim"),
     activeMinutes: z
@@ -71,6 +115,8 @@ export const sessionSchema = z
     expStart: amount("EXP início"),
     levelEnd: level("level fim"),
     expEnd: amount("EXP fim"),
+    suppliesCost,
+    drops,
     notes,
   })
   .refine((session) => session.endedAt > session.startedAt, {

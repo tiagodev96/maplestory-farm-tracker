@@ -2,7 +2,14 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { SessionForm } from "@/features/grind/components/session-form";
-import { getSession, listCharacters, listKnownMonsters } from "@/features/grind/queries";
+import {
+  getSession,
+  listCharacters,
+  listKnownItems,
+  listKnownMaps,
+  listKnownMonsters,
+  listSessionDrops,
+} from "@/features/grind/queries";
 import { getTimeZone } from "@/lib/request-preferences";
 
 export const metadata: Metadata = { title: "Editar sessão" };
@@ -11,12 +18,16 @@ export default async function EditSessionPage({ params }: { params: Promise<{ id
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
 
-  const [session, characters, knownMonsters, timeZone] = await Promise.all([
-    getSession(id),
-    listCharacters(),
-    listKnownMonsters(),
-    getTimeZone(),
-  ]);
+  const [session, drops, characters, knownMonsters, knownMaps, knownItems, timeZone] =
+    await Promise.all([
+      getSession(id),
+      listSessionDrops(id),
+      listCharacters(),
+      listKnownMonsters(),
+      listKnownMaps(),
+      listKnownItems(),
+      getTimeZone(),
+    ]);
   if (!session) notFound();
 
   return (
@@ -27,6 +38,9 @@ export default async function EditSessionPage({ params }: { params: Promise<{ id
         key={timeZone}
         characters={characters}
         knownMonsters={knownMonsters}
+        knownMaps={knownMaps}
+        knownItems={knownItems}
+        initialDrops={drops}
         timeZone={timeZone}
         values={session}
       />

@@ -8,7 +8,8 @@ import { NumberInput } from "@/components/number-input";
 import { useFormAction } from "@/components/use-form-action";
 import { toDateTimeLocal } from "@/lib/format";
 import { deleteSessionAction, saveSessionAction } from "../actions";
-import type { Character } from "../queries";
+import type { Character, KnownItem, SessionDrop } from "../queries";
+import { DropsEditor } from "./drops-editor";
 
 const MS_PER_MINUTE = 60_000;
 
@@ -16,6 +17,8 @@ export type SessionFormValues = {
   id: string | null;
   characterId: string;
   monster: string;
+  map: string;
+  isParty: boolean;
   startedAt: number;
   endedAt: number;
   activeMs: number | null;
@@ -25,6 +28,7 @@ export type SessionFormValues = {
   expStart: number | null;
   levelEnd: number | null;
   expEnd: number | null;
+  suppliesCost: number | null;
   notes: string;
 };
 
@@ -32,10 +36,21 @@ type SessionFormProps = {
   values: SessionFormValues;
   characters: Character[];
   knownMonsters: string[];
+  knownMaps: string[];
+  knownItems: KnownItem[];
+  initialDrops: SessionDrop[];
   timeZone: string;
 };
 
-export function SessionForm({ values, characters, knownMonsters, timeZone }: SessionFormProps) {
+export function SessionForm({
+  values,
+  characters,
+  knownMonsters,
+  knownMaps,
+  knownItems,
+  initialDrops,
+  timeZone,
+}: SessionFormProps) {
   const initialStartText = toDateTimeLocal(values.startedAt, timeZone);
   const initialEndText = toDateTimeLocal(values.endedAt, timeZone);
   const [isDeleting, startDelete] = useTransition();
@@ -66,7 +81,7 @@ export function SessionForm({ values, characters, knownMonsters, timeZone }: Ses
   return (
     <form onSubmit={onSubmit} className="space-y-3">
       <input type="hidden" name="id" value={values.id ?? ""} />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-[1fr_auto] items-end gap-3">
         <div>
           <label className="field-label" htmlFor="characterId">
             Personagem
@@ -79,6 +94,18 @@ export function SessionForm({ values, characters, knownMonsters, timeZone }: Ses
             ))}
           </select>
         </div>
+        <label className="flex cursor-pointer items-center gap-2 pb-2.5 text-sm">
+          <input
+            type="checkbox"
+            name="isParty"
+            className="size-4 accent-accent"
+            defaultChecked={values.isParty}
+          />
+          Em party
+        </label>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="field-label" htmlFor="monster">
             Monstro
@@ -95,6 +122,25 @@ export function SessionForm({ values, characters, knownMonsters, timeZone }: Ses
           <datalist id="knownMonsters">
             {knownMonsters.map((monster) => (
               <option key={monster} value={monster} />
+            ))}
+          </datalist>
+        </div>
+        <div>
+          <label className="field-label" htmlFor="map">
+            Mapa
+          </label>
+          <input
+            id="map"
+            name="map"
+            className="input"
+            list="knownMaps"
+            maxLength={80}
+            autoComplete="off"
+            defaultValue={values.map}
+          />
+          <datalist id="knownMaps">
+            {knownMaps.map((map) => (
+              <option key={map} value={map} />
             ))}
           </datalist>
         </div>
@@ -173,6 +219,16 @@ export function SessionForm({ values, characters, knownMonsters, timeZone }: Ses
         defaultLevel={values.levelEnd}
         defaultExp={values.expEnd}
       />
+
+      <div>
+        <label className="field-label" htmlFor="suppliesCost">
+          Custo de suprimentos
+        </label>
+        <NumberInput id="suppliesCost" name="suppliesCost" defaultValue={values.suppliesCost} />
+        <p className="hint">Valor das poções gastas que você já tinha antes de iniciar.</p>
+      </div>
+
+      <DropsEditor initialDrops={initialDrops} knownItems={knownItems} />
 
       <div>
         <label className="field-label" htmlFor="notes">

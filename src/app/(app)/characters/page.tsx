@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CreateCharacterForm } from "@/features/grind/components/create-character-form";
+import { PublicLinkToggle } from "@/features/grind/components/public-link-toggle";
 import { RenameCharacterForm } from "@/features/grind/components/rename-character-form";
 import { listCharacters } from "@/features/grind/queries";
 
@@ -15,10 +16,11 @@ export default async function CharactersPage() {
         {characters.length === 0 ? (
           <p className="text-sm text-muted">Você ainda não tem personagens.</p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-5">
             {characters.map((character) => (
-              <li key={character.id}>
+              <li key={character.id} className="space-y-2">
                 <RenameCharacterForm character={character} />
+                <PublicLinkToggle character={character} />
               </li>
             ))}
           </ul>

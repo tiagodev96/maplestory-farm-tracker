@@ -15,9 +15,13 @@ import {
 } from "./format";
 import {
   aggregate,
+  bestExpPerHour,
   elapsedActiveMs,
   groupTotals,
+  netProfit,
   perHour,
+  recordSessionIds,
+  timeToNextLevelMs,
   totalPausedMs,
   type SessionMetrics,
 } from "./grind-math";
@@ -33,6 +37,8 @@ const wraithsMorning: SessionMetrics = {
   expStart: 4_453,
   levelEnd: 53,
   expEnd: 145_463,
+  suppliesCost: 0,
+  dropsValue: 0,
 };
 const lupins: SessionMetrics = {
   activeMs: 64 * MINUTE,
@@ -42,6 +48,8 @@ const lupins: SessionMetrics = {
   expStart: 145_463,
   levelEnd: 53,
   expEnd: 251_223,
+  suppliesCost: 0,
+  dropsValue: 0,
 };
 const wraithsAfternoon: SessionMetrics = {
   activeMs: 156 * MINUTE,
@@ -51,6 +59,8 @@ const wraithsAfternoon: SessionMetrics = {
   expStart: 251_223,
   levelEnd: 53,
   expEnd: 605_695,
+  suppliesCost: 0,
+  dropsValue: 0,
 };
 
 describe("expGained", () => {
@@ -117,6 +127,50 @@ describe("rates and totals", () => {
       ["Wraiths", 2],
       ["Lupin", 1],
     ]);
+  });
+});
+
+describe("net profit", () => {
+  it("adds drops and subtracts supplies from the mesos gained", () => {
+    const session = { ...wraithsMorning, dropsValue: 120_000, suppliesCost: 45_000 };
+    expect(netProfit(session)).toBe(33_000 + 120_000 - 45_000);
+    expect(aggregate([session, lupins]).profit).toBe(108_000 + 18_000);
+  });
+
+  it("can be negative when supplies cost more than the session made", () => {
+    expect(netProfit({ ...lupins, suppliesCost: 50_000 })).toBe(-32_000);
+  });
+});
+
+describe("time to next level", () => {
+  it("divides the EXP left in the level by the pace", () => {
+    // Level 53 needs 832.902 EXP; half of it is left at 416.451.
+    expect(timeToNextLevelMs(53, 416_451, 416_451)).toBe(60 * MINUTE);
+  });
+
+  it("cannot be estimated without a positive pace or at the level cap", () => {
+    expect(timeToNextLevelMs(53, 0, 0)).toBeNull();
+    expect(timeToNextLevelMs(53, 0, null)).toBeNull();
+    expect(timeToNextLevelMs(100, 0, 1_000)).toBeNull();
+  });
+});
+
+describe("personal records", () => {
+  const sessions = [
+    { ...wraithsMorning, id: "morning", monster: "Wraiths" },
+    { ...lupins, id: "lupins", monster: "Lupin" },
+    { ...wraithsAfternoon, id: "afternoon", monster: "Wraiths" },
+    { ...wraithsMorning, id: "burst", monster: "Wraiths", activeMs: 2 * MINUTE },
+  ];
+
+  it("marks the best EXP/h of each monster, ignoring very short sessions", () => {
+    const records = recordSessionIds(sessions, (session) => session.monster);
+    expect([...records]).toEqual(["morning"]);
+  });
+
+  it("reports the best pace of a group", () => {
+    expect(Math.round(bestExpPerHour(sessions) ?? 0)).toBe(172_665);
+    expect(bestExpPerHour([sessions[3]])).toBeNull();
   });
 });
 

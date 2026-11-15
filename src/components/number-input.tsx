@@ -11,6 +11,7 @@ type NumberInputProps = {
   isPlain?: boolean;
   isRequired?: boolean;
   hasAutoFocus?: boolean;
+  placeholder?: string;
   onValueChange?: (value: number | null) => void;
 };
 
@@ -38,6 +39,7 @@ export function NumberInput({
   isPlain = false,
   isRequired = false,
   hasAutoFocus = false,
+  placeholder,
   onValueChange,
 }: NumberInputProps) {
   const [text, setText] = useState(toText(defaultValue, isPlain));
@@ -51,6 +53,7 @@ export function NumberInput({
       autoComplete="off"
       required={isRequired}
       autoFocus={hasAutoFocus}
+      placeholder={placeholder}
       value={text}
       onFocus={(event) => event.target.select()}
       onChange={(event) => {

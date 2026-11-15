@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { FormFeedback } from "@/components/form-feedback";
+import { isTypingInField } from "@/components/keyboard";
 import { LevelBar } from "@/components/level-bar";
 import { LevelExpFields } from "@/components/level-exp-fields";
 import { NumberInput } from "@/components/number-input";
@@ -21,7 +22,8 @@ import {
   pauseGrindAction,
   resumeGrindAction,
 } from "../actions";
-import type { ActiveGrind } from "../queries";
+import type { ActiveGrind, KnownItem } from "../queries";
+import { DropsEditor } from "./drops-editor";
 
 const DEFAULT_TITLE = "Farm Tracker";
 const MS_PER_MINUTE = 60_000;
@@ -49,9 +51,10 @@ type ActiveGrindCardProps = {
   grind: ActiveGrind;
   serverNow: number;
   timeZone: string;
+  knownItems: KnownItem[];
 };
 
-export function ActiveGrindCard({ grind, serverNow, timeZone }: ActiveGrindCardProps) {
+export function ActiveGrindCard({ grind, serverNow, timeZone, knownItems }: ActiveGrindCardProps) {
   const now = useServerNow(serverNow);
   const [isFinishing, setIsFinishing] = useState(false);
   const [isUpdating, startUpdate] = useTransition();
@@ -66,6 +69,21 @@ export function ActiveGrindCard({ grind, serverNow, timeZone }: ActiveGrindCardP
       document.title = DEFAULT_TITLE;
     };
   }, [clockText, isPaused]);
+
+  useEffect(() => {
+    if (isFinishing) return;
+    function handleShortcut(event: KeyboardEvent) {
+      if (isTypingInField(event) || event.repeat) return;
+      const key = event.key.toLowerCase();
+      if (key === "p") startUpdate(() => (isPaused ? resumeGrindAction() : pauseGrindAction()));
+      if (key === "f") {
+        if (!isPaused) startUpdate(() => pauseGrindAction());
+        setIsFinishing(true);
+      }
+    }
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [isFinishing, isPaused]);
 
   function beginFinishing() {
     if (!isPaused) startUpdate(() => pauseGrindAction());
@@ -84,12 +102,16 @@ export function ActiveGrindCard({ grind, serverNow, timeZone }: ActiveGrindCardP
 
   const startDay = dayKey(grind.startedAt, timeZone);
   const startedOnAnotherDay = startDay !== dayKey(now, timeZone);
+  const place = [grind.monster, grind.map].filter(Boolean).join(" · ") || "não informado";
 
   const startSummary = (
     <div className="space-y-3 rounded-lg border border-line bg-bg px-3 py-3 text-[13px]">
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-        <SummaryItem label="Personagem" value={grind.characterName} />
-        <SummaryItem label="Monstro" value={grind.monster || "não informado"} />
+        <SummaryItem
+          label="Personagem"
+          value={grind.isParty ? `${grind.characterName} (party)` : grind.characterName}
+        />
+        <SummaryItem label="Monstro · mapa" value={place} />
         <SummaryItem label="Mesos início" value={formatInteger(grind.mesosStart)} />
         <SummaryItem label="EXP início" value={formatInteger(grind.expStart)} />
       </dl>
@@ -113,7 +135,12 @@ export function ActiveGrindCard({ grind, serverNow, timeZone }: ActiveGrindCardP
           </p>
         </div>
         {startSummary}
-        <FinishGrindForm levelStart={grind.levelStart} isBusy={isUpdating} onBack={backToGrind} />
+        <FinishGrindForm
+          levelStart={grind.levelStart}
+          knownItems={knownItems}
+          isBusy={isUpdating}
+          onBack={backToGrind}
+        />
       </div>
     );
   }
@@ -147,25 +174,35 @@ export function ActiveGrindCard({ grind, serverNow, timeZone }: ActiveGrindCardP
       <div className="flex gap-2.5">
         <button
           type="button"
-          className="btn flex-1"
+          className="btn flex-1 gap-2"
           disabled={isUpdating}
           onClick={() => startUpdate(() => (isPaused ? resumeGrindAction() : pauseGrindAction()))}
         >
           {isPaused ? "Retomar" : "Pausar"}
+          <ShortcutHint letter="P" />
         </button>
         <button
           type="button"
-          className="btn btn-primary flex-1"
+          className="btn btn-primary flex-1 gap-2"
           disabled={isUpdating}
           onClick={beginFinishing}
         >
           Finalizar grind
+          <ShortcutHint letter="F" />
         </button>
       </div>
       <button type="button" className="btn btn-small btn-danger" disabled={isUpdating} onClick={discard}>
         Descartar este grind
       </button>
     </div>
+  );
+}
+
+function ShortcutHint({ letter }: { letter: string }) {
+  return (
+    <kbd className="hidden rounded border border-current px-1 text-[10px] font-medium opacity-60 md:inline">
+      {letter}
+    </kbd>
   );
 }
 
@@ -178,15 +215,14 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
   );
 }
 
-function FinishGrindForm({
-  levelStart,
-  isBusy,
-  onBack,
-}: {
+type FinishGrindFormProps = {
   levelStart: number;
+  knownItems: KnownItem[];
   isBusy: boolean;
   onBack: () => void;
-}) {
+};
+
+function FinishGrindForm({ levelStart, knownItems, isBusy, onBack }: FinishGrindFormProps) {
   const { state, isPending, onSubmit } = useFormAction(finishGrindAction);
 
   return (
@@ -205,6 +241,14 @@ function FinishGrindForm({
         defaultLevel={levelStart}
         defaultExp={null}
       />
+      <div>
+        <label className="field-label" htmlFor="suppliesCost">
+          Custo de suprimentos (opcional)
+        </label>
+        <NumberInput id="suppliesCost" name="suppliesCost" defaultValue={null} />
+        <p className="hint">Valor das poções gastas que você já tinha antes de iniciar.</p>
+      </div>
+      <DropsEditor initialDrops={[]} knownItems={knownItems} />
       <div>
         <label className="field-label" htmlFor="notes">
           Notas (opcional)

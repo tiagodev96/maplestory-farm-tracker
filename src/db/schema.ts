@@ -81,6 +81,8 @@ export const characters = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    // Set while the read-only public page of the character is enabled.
+    publicSlug: text("public_slug").unique(),
     createdAt,
   },
   (table) => [unique("characters_user_name_unique").on(table.userId, table.name)],
@@ -103,6 +105,8 @@ export const grindSessions = pgTable(
       .notNull()
       .references(() => characters.id, { onDelete: "restrict" }),
     monster: text("monster").notNull().default(""),
+    map: text("map").notNull().default(""),
+    isParty: boolean("is_party").notNull().default(false),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     endedAt: timestamp("ended_at", { withTimezone: true }).notNull(),
     activeMs: milliseconds("active_ms"),
@@ -112,6 +116,8 @@ export const grindSessions = pgTable(
     expStart: exp("exp_start"),
     levelEnd: integer("level_end").notNull(),
     expEnd: exp("exp_end"),
+    // Value of potions and other consumables used up, which the mesos delta does not capture.
+    suppliesCost: mesos("supplies_cost").default(0),
     notes: text("notes").notNull().default(""),
     createdAt,
   },
@@ -128,6 +134,8 @@ export const activeGrinds = pgTable("active_grinds", {
     .notNull()
     .references(() => characters.id, { onDelete: "cascade" }),
   monster: text("monster").notNull().default(""),
+  map: text("map").notNull().default(""),
+  isParty: boolean("is_party").notNull().default(false),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
   pausedMs: milliseconds("paused_ms").default(0),
   pauseStartedAt: timestamp("pause_started_at", { withTimezone: true }),
@@ -135,3 +143,17 @@ export const activeGrinds = pgTable("active_grinds", {
   levelStart: integer("level_start").notNull(),
   expStart: exp("exp_start"),
 });
+
+export const sessionDrops = pgTable(
+  "session_drops",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => grindSessions.id, { onDelete: "cascade" }),
+    itemName: text("item_name").notNull(),
+    quantity: integer("quantity").notNull(),
+    unitPrice: mesos("unit_price"),
+  },
+  (table) => [index("session_drops_session_idx").on(table.sessionId)],
+);

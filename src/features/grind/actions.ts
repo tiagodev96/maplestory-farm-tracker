@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getDb, type Database } from "@/db/client";
-import { activeGrinds, characters, grindSessions } from "@/db/schema";
+import { activeGrinds, characters, grindSessions, sessionDrops } from "@/db/schema";
 import { requireUser } from "@/lib/current-user";
 import { elapsedActiveMs } from "@/lib/grind-math";
 import { ACTIVE_CHARACTER_COOKIE } from "@/lib/request-preferences";
@@ -108,6 +108,26 @@ export async function setActiveCharacterAction(characterId: string): Promise<voi
   revalidateApp();
 }
 
+/** Turns the read-only public page of a character on or off. */
+export async function togglePublicLinkAction(characterId: string): Promise<void> {
+  const user = await requireUser();
+  if (!z.uuid().safeParse(characterId).success) return;
+  const db = await getDb();
+  const [character] = await db
+    .select({ publicSlug: characters.publicSlug })
+    .from(characters)
+    .where(and(eq(characters.id, characterId), eq(characters.userId, user.id)));
+  if (!character) return;
+
+  // The slug is the only thing protecting the page, so it must be unguessable.
+  const publicSlug = character.publicSlug ? null : crypto.randomUUID().replaceAll("-", "");
+  await db
+    .update(characters)
+    .set({ publicSlug })
+    .where(and(eq(characters.id, characterId), eq(characters.userId, user.id)));
+  revalidateApp();
+}
+
 export async function startGrindAction(
   _previous: FormState,
   formData: FormData,
@@ -191,19 +211,30 @@ export async function finishGrindAction(
     pauseStartedAt: active.pauseStartedAt?.getTime() ?? null,
   };
 
+  const { drops, ...sessionEnd } = parsed.data;
   await db.transaction(async (transaction) => {
-    await transaction.insert(grindSessions).values({
-      userId: user.id,
-      characterId: active.characterId,
-      monster: active.monster,
-      startedAt: active.startedAt,
-      endedAt,
-      activeMs: elapsedActiveMs(timer, endedAt.getTime()),
-      mesosStart: active.mesosStart,
-      levelStart: active.levelStart,
-      expStart: active.expStart,
-      ...parsed.data,
-    });
+    const [created] = await transaction
+      .insert(grindSessions)
+      .values({
+        userId: user.id,
+        characterId: active.characterId,
+        monster: active.monster,
+        map: active.map,
+        isParty: active.isParty,
+        startedAt: active.startedAt,
+        endedAt,
+        activeMs: elapsedActiveMs(timer, endedAt.getTime()),
+        mesosStart: active.mesosStart,
+        levelStart: active.levelStart,
+        expStart: active.expStart,
+        ...sessionEnd,
+      })
+      .returning({ id: grindSessions.id });
+    if (drops.length > 0) {
+      await transaction
+        .insert(sessionDrops)
+        .values(drops.map((drop) => ({ ...drop, sessionId: created.id })));
+    }
     await transaction.delete(activeGrinds).where(eq(activeGrinds.userId, user.id));
   });
   revalidateApp();
@@ -220,7 +251,7 @@ export async function saveSessionAction(
   const parsed = sessionSchema.safeParse(fields);
   if (!parsed.success) return validationError(parsed.error);
 
-  const { id, activeMinutes, startedAt, endedAt, ...rest } = parsed.data;
+  const { id, activeMinutes, startedAt, endedAt, drops, ...rest } = parsed.data;
   const db = await getDb();
   if (!(await ownsCharacter(db, user.id, rest.characterId))) {
     return { error: "Personagem não encontrado." };
@@ -237,16 +268,28 @@ export async function saveSessionAction(
         : Math.min(activeMinutes * MS_PER_MINUTE, wallClockMs),
   };
 
-  if (id) {
-    const updated = await db
-      .update(grindSessions)
-      .set(values)
-      .where(and(eq(grindSessions.id, id), eq(grindSessions.userId, user.id)))
-      .returning({ id: grindSessions.id });
-    if (updated.length === 0) return { error: "Sessão não encontrada." };
-  } else {
-    await db.insert(grindSessions).values({ ...values, userId: user.id });
-  }
+  const isSaved = await db.transaction(async (transaction) => {
+    const [saved] = id
+      ? await transaction
+          .update(grindSessions)
+          .set(values)
+          .where(and(eq(grindSessions.id, id), eq(grindSessions.userId, user.id)))
+          .returning({ id: grindSessions.id })
+      : await transaction
+          .insert(grindSessions)
+          .values({ ...values, userId: user.id })
+          .returning({ id: grindSessions.id });
+    if (!saved) return false;
+
+    await transaction.delete(sessionDrops).where(eq(sessionDrops.sessionId, saved.id));
+    if (drops.length > 0) {
+      await transaction
+        .insert(sessionDrops)
+        .values(drops.map((drop) => ({ ...drop, sessionId: saved.id })));
+    }
+    return true;
+  });
+  if (!isSaved) return { error: "Sessão não encontrada." };
   revalidateApp();
   redirect("/history");
 }
