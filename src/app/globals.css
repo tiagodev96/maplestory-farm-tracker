@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #17130f;
+  --color-panel: #211b15;
+  --color-panel-2: #2a221a;
+  --color-line: #3a2f24;
+  --color-text: #f1e7d8;
+  --color-muted: #a8977f;
+  --color-accent: #f0a23a;
+  --color-accent-ink: #2a1a05;
+  --color-good: #7fd08a;
+  --color-bad: #ef7d6b;
+  --color-exp: #8fc7ef;
+  --color-expbar: #c8d84b;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-panel p-5;
+  }
+
+  .section-title {
+    @apply mb-3.5 text-[13px] font-semibold uppercase tracking-[1.2px] text-muted;
+  }
+
+  .field-label {
+    @apply mb-1 block text-xs text-muted;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-line bg-bg px-3 py-2 tabular-nums text-text;
+  }
+
+  .input:focus,
+  .btn:focus-visible {
+    @apply outline-2 outline-offset-1 outline-accent;
+  }
+
+  .hint {
+    @apply mt-1 min-h-[17px] text-xs text-muted;
+  }
+
+  .btn {
+    @apply inline-flex cursor-pointer items-center justify-center rounded-lg border border-line bg-panel-2 px-3.5 py-2 font-semibold text-text;
+  }
+
+  .btn:hover {
+    @apply border-accent;
+  }
+
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
+
+  .btn-primary {
+    @apply border-accent bg-accent text-accent-ink;
+  }
+
+  .btn-primary:hover {
+    @apply brightness-110;
+  }
+
+  .btn-danger:hover {
+    @apply border-bad text-bad;
+  }
+
+  .tab {
+    @apply rounded-lg px-3 py-1.5 text-sm text-muted;
+  }
+
+  .tab:hover {
+    @apply text-text;
+  }
+
+  .tab[aria-current="page"] {
+    @apply bg-panel-2 font-semibold text-text;
+  }
+
+  .tab:focus-visible {
+    @apply outline-2 outline-offset-1 outline-accent;
+  }
+
+  .btn-small {
+    @apply px-2.5 py-1 text-xs font-medium;
+  }
+
+  .data-table {
+    @apply w-full border-collapse text-sm tabular-nums;
+  }
+
+  .data-table th,
+  .data-table td {
+    @apply whitespace-nowrap border-b border-line px-2 py-2 text-right;
+  }
+
+  .data-table th {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-muted;
+  }
+
+  .data-table th:first-child,
+  .data-table td:first-child,
+  .data-table .cell-left {
+    @apply text-left;
+  }
+
+  .data-table tbody tr:hover {
+    @apply bg-panel-2;
+  }
+
+  .data-table td small {
+    @apply block text-[11px] text-muted;
+  }
+}
